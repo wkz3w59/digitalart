@@ -1,0 +1,94 @@
+<!DOCTYPE HTML>
+<html lang="en">
+  <head>
+  <meta charset="utf-8">
+  <title>BMD 02</title>
+<style type="text/css">
+body {
+  font-family: Arial, Helvetica, "Liberation Sans", FreeSans, sans-serif;
+  background-color: #000;
+  margin:0;
+  padding:0;
+  border-width:0;
+  overflow: hidden;
+/*  cursor: pointer; */
+}
+
+</style>
+  </head>
+  <body>
+<!--
+    Barry Martin's doileys(https://codepen.io/findoff/pen/rNgjVKY) by findoff(https://codepen.io/findoff)
+  -->
+<script type="text/javascript">
+"use strict";
+
+// https://habr.com/en/articles/817869/
+// http://f0928940.xsph.ru/hopalong.html
+// https://hopalongvr.dghost.net/
+
+console.clear();
+const canvas = document.createElement('canvas');
+document.body.appendChild(canvas);
+const canvasCtx = canvas.getContext('2d');
+canvas.style.border = '1px dashed #000000';
+const w = 800;
+canvas.width = canvas.height = w;
+
+requestAnimationFrame(loop);
+
+let gen;
+const opts = {
+	a: 1, b: 3, c: 0,
+	scale: 50,
+	pw: 1,
+	steps: 2000,
+	reset,
+};
+const gui = new dat.GUI();
+gui.add(opts, 'a').min(-2000).max(2000).onChange(reset);
+gui.add(opts, 'b').min(-2000).max(2000).onChange(reset);
+gui.add(opts, 'c').min(-2000).max(2000).onChange(reset);
+gui.add(opts, 'scale').min(0.1).max(200).onChange(reset);
+gui.add(opts, 'pw').min(0.25).max(4).onChange(reset);
+gui.add(opts, 'steps').min(1).max(20000).step(1).onChange(reset);
+gui.add(opts, 'reset');
+
+reset();
+
+function loop(){
+	if(gen)gen.next();
+	requestAnimationFrame(loop);
+}
+
+function reset(){
+	canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+	gen = xGen();
+}
+
+function *xGen(){
+	const {a, b, c, scale, pw, steps} = opts;
+
+	const shift = w / 2;
+	let color = 0;
+
+	let [x, y] = [0, 0];
+	while(true){
+		for(let i = 0; i < steps; ++i){
+			[x, y] = [
+				y - Math.sign(x) * Math.sqrt(Math.abs(b * x + c)),
+				a - x,
+			];
+			canvasCtx.fillRect(
+				shift + x * scale,
+				shift + y * scale,
+				pw, pw,
+			);
+		}
+		canvasCtx.fillStyle = `hsl(${color}, 50%, 50%)`;
+		color += 37;
+		yield;
+	}
+}</script>
+  </body>
+</html>
