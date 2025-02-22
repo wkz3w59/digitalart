@@ -1,95 +1,372 @@
 <!DOCTYPE HTML>
 <html lang="en">
-  <head>
-  <meta charset="utf-8">
-  <title>Hopalong 01</title>
-<style type="text/css">
-body {
-  font-family: Arial, Helvetica, "Liberation Sans", FreeSans, sans-serif;
-  background-color: #000;
-  margin:0;
-  padding:0;
-  border-width:0;
-  overflow: hidden;
-/*  cursor: pointer; */
-}
 
-</style>
-  </head>
-  <body>
-<!--
+<head>
+    <meta charset="utf-8">
+    <title>Hopalong 01</title>
+    <style type="text/css">
+        body {
+            font-family: Arial, Helvetica, "Liberation Sans", FreeSans, sans-serif;
+            background-color: #000;
+            margin: 0;
+            padding: 0;
+            border-width: 0;
+            cursor: pointer;
+            caret-color: transparent;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        input {
+            caret-color: auto;
+        }
+
+        #menu {
+            font-size: 80%;
+            margin: 0;
+            padding: 5px;
+            position: absolute;
+            left: 5px;
+            top: 5px;
+            border-radius: 10px;
+            background-color: rgba(255, 255, 128, 0.9);
+            color: black;
+            z-index: 10;
+            max-height: 95vh;
+            overflow: auto;
+        }
+
+        #menu.hidden #showhide {
+            display: none;
+        }
+
+        #controls {
+            margin-top: 0px;
+            margin-bottom: 0px;
+
+        }
+
+        #menu p {
+            margin-top: 6px;
+            margin-bottom: 6px;
+
+        }
+
+        #menu button {
+            margin-right: 5px;
+            margin-left: 5px;
+            border-radius: 5px;
+        }
+
+        #menu .center {
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <!--
     Inspired by pen Barry Martin's doileys(https://codepen.io/findoff/pen/rNgjVKY) by findoff(https://codepen.io/findoff)
     search for "hopalong attractor"
   -->
-<script type="text/javascript">
-"use strict";
 
-// https://habr.com/en/articles/817869/
-// http://f0928940.xsph.ru/hopalong.html
-// https://hopalongvr.dghost.net/
+    <div id="menu">
+        <p id="controls">close controls</p>
+        <div id="showhide">
+            <hr>
+            <p><input type="checkbox" id="autodimension" checked> auto dimensions</p>
+            <p id="ttwidth">target width: <input type="number" id=twidth value=300 min=10 max=2000 step=1></p>
+            <p id="ttheight">target height: <span id=theight>--</span></p>
+            <hr>
+            <p>color:</p>
+            <p>stroke: random: <input type="checkbox" id="randomcolor"> or <input type="color" id=strokecolor
+                    value="#000088"></p>
+            <p>background: <input type="color" id=bgcolor value="#ffffdd"></p>
+            <p>a: <input type="number" id=a value=1 min=0.5 max=10 step="any"></p>
+            <hr>
+            HatchFlow:
+            <p>separation: <input type="range" id=hatchdistance value=5 min=2 max=20 step=1></p>
+            <p>max length: <input type="range" id=hatchlength value=1 min=0 max=1 step=any></p>
+            <p>line orientation (images only):</p>
+            <p>base: <input type="range" id=basedir value=1.5 min=-3.1516 max=3.1416 step="any"></p>
+            <p>deviation: <input type="range" id=deviation value=-3 min=-3.5 max=3.5 step="any"></p>
+            <hr>
+            <p>source:</p>
+            <p class="center"><button type="button" id="load">load image</button><button type="button"
+                    id="default">default image</button></p>
+            <p class="center"><button type="button" id="field1">field 1</button><button type="button" id="field2">field
+                    2</button></p>
+            <hr>
+            <p class="center"><button type="button" id="redraw">redraw</button></p>
+        </div> <!-- showhide -->
+    </div> <!-- menu -->
 
-console.clear();
-const canvas = document.createElement('canvas');
-document.body.appendChild(canvas);
-const canvasCtx = canvas.getContext('2d');
-canvas.style.border = '1px dashed #000000';
-const w = 800;
-canvas.width = canvas.height = w;
+    <script type="text/javascript">
+        "use strict";
 
-requestAnimationFrame(loop);
+        // https://habr.com/en/articles/817869/
+        // http://f0928940.xsph.ru/hopalong.html
+        // https://hopalongvr.dghost.net/
 
-let gen;
-const opts = {
-	a: 1, b: 3, c: 0,
-	scale: 50,
-	pw: 1,
-	steps: 2000,
-	reset,
-};
-const gui = new dat.GUI();
-gui.add(opts, 'a').min(-2000).max(2000).onChange(reset);
-gui.add(opts, 'b').min(-2000).max(2000).onChange(reset);
-gui.add(opts, 'c').min(-2000).max(2000).onChange(reset);
-gui.add(opts, 'scale').min(0.1).max(200).onChange(reset);
-gui.add(opts, 'pw').min(0.25).max(4).onChange(reset);
-gui.add(opts, 'steps').min(1).max(20000).step(1).onChange(reset);
-gui.add(opts, 'reset');
+        let canv, ctx, maxx, maxy;
+        let ui, uiv; // user interface
 
-reset();
+        let gen;
+        let opts;
 
-function loop(){
-	if(gen)gen.next();
-	requestAnimationFrame(loop);
-}
+        // shortcuts for Math.
+        const mrandom = Math.random;
+        const mfloor = Math.floor;
+        const mround = Math.round;
+        const mceil = Math.ceil;
+        const mabs = Math.abs;
+        const mmin = Math.min;
+        const mmax = Math.max;
 
-function reset(){
-	canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
-	gen = xGen();
-}
+        const mPI = Math.PI;
+        const m2PI = Math.PI * 2;
+        const msin = Math.sin;
+        const mcos = Math.cos;
+        const matan2 = Math.atan2;
+        const mexp = Math.exp;
 
-function *xGen(){
-	const {a, b, c, scale, pw, steps} = opts;
+        const mhypot = Math.hypot;
+        const msqrt = Math.sqrt;
 
-	const shift = w / 2;
-	let color = 0;
+        //------------------------------------------------------------------------
+        // User Interface (controls)
+        //------------------------------------------------------------------------
+        function toggleMenu() {
+            if (menu.classList.contains("hidden")) {
+                menu.classList.remove("hidden");
+                this.innerHTML = "close controls";
+            } else {
+                menu.classList.add("hidden");
+                this.innerHTML = "controls";
+            }
+        } // toggleMenu
 
-	let [x, y] = [0, 0];
-	while(true){
-		for(let i = 0; i < steps; ++i){
-			[x, y] = [
-				y - Math.sign(x) * Math.sqrt(Math.abs(b * x + c)),
-				a - x,
-			];
-			canvasCtx.fillRect(
-				shift + x * scale,
-				shift + y * scale,
-				pw, pw,
-			);
-		}
-		canvasCtx.fillStyle = `hsl(${color}, 50%, 50%)`;
-		color += 37;
-		yield;
-	}
-}</script>
-  </body>
+        //------------------------------------------------------------------------
+
+        function getCoerce(name, min, max, isInt) {
+
+            let parse = isInt ? parseInt : parseFloat;
+            let ctrl = ui[name];
+            let x = parse(ctrl.value, 10);
+            if (isNaN(x)) { x = uiv[name] }
+            x = mmax(x, min);
+            x = mmin(x, max);
+            ctrl.value = uiv[name] = x;
+        }
+
+        //------------------------------------------------------------------------
+        function prepareUI() {
+
+            // toggle menu handler
+
+            document.querySelector("#controls").addEventListener("click", toggleMenu);
+
+            ui = {};  // User Interface HTML elements
+            uiv = {}; // User Interface values of controls
+
+            ['twidth', 'theight', 'load', "autodimension", "ttwidth", "default",
+                "randomcolor", "strokecolor", "bgcolor", "a",
+                "hatchdistance", "hatchlength",
+                "basedir", "deviation", "redraw", "field1", "field2"].forEach(ctrlName => ui[ctrlName] = document.getElementById(ctrlName));
+
+            registerControl("twidth", readCoerced);
+            registerControl("autodimension", readUICheck);
+            registerControl("randomcolor", readUICheck);
+            registerControl("strokecolor", readUIText);
+            registerControl("bgcolor", readUIText);
+            registerControl("a", readCoerced);
+            registerControl("hatchdistance", readCoerced);
+            registerControl("hatchlength", readCoerced);
+            registerControl("basedir", readCoerced);
+            registerControl("deviation", readCoerced);
+
+            readUI();
+            /*
+                        ui.load.addEventListener("click", loadUserImage);
+                        ui.default.addEventListener("click", loadDefaultImage);
+                        ui.redraw.addEventListener("click", redraw);
+                        ui.field1.addEventListener("click", field1);
+                        ui.field2.addEventListener("click", field2);
+            */
+        } // prepareUI
+
+        //------------------------------------------------------------------------
+        function readUI() {
+
+            if (ui.registered) {
+                for (const ctrl in ui.registered) ui.registered[ctrl].readF();
+            }
+            //            chkAutodim();
+            //chkRandomColor();
+        } // readUI
+
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        function registerControl(controlName, readFunction, changeEvent, changedFunction) {
+            /* provides simple way to associate controls with their read / update / changeEvent / changed functions
+            since many (but not all) controls work almost the same way */
+            /* changeEvent and changedFunction are optional */
+
+            const ctrl = ui[controlName];
+            ui.registered = ui.registered || [];
+            ui.registered.push(ctrl); // NEVER register a control twice !!!
+            ctrl.readF = readFunction;
+            if (changeEvent) {
+                ctrl.addEventListener(changeEvent, (event) => {
+                    readFunction.call(ctrl);
+                    if (changedFunction) changedFunction.call(ctrl, event);
+                });
+            }
+        } // registerControl
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        function readUIText() {
+            uiv[this.id] = this.value;
+        }
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        function readUIFloat() {
+            uiv[this.id] = parseFloat(this.value);
+        }
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        function readUIInt(ctrl, event) {
+            uiv[this.id] = parseInt(this.value);
+        }
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        function readUICheck(ctrl, event) {
+            uiv[this.id] = this.checked;
+        }
+
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        function readCoerced() {
+            /* the element will be read with getCoerce with values given by its min, max and step attributes
+              (integer value if step == 1)
+            */
+            let min = this.getAttribute("min");
+            let max = this.getAttribute("max");
+            let step = this.getAttribute("step");
+            getCoerce(this.id, min, max, (step == 1));
+
+        }
+
+        //------------------------------------------------------------------------
+
+
+        function* xGen() {
+            const { a, b, c, scale, pw, steps } = opts;
+
+            const shiftx = maxx / 2;
+            const shifty = maxy / 2;
+            let color = 0;
+
+            let [x, y] = [0, 0];
+            while (true) {
+                for (let i = 0; i < steps; ++i) {
+                    [x, y] = [
+                        y - Math.sign(x) * Math.sqrt(Math.abs(b * x + c)),
+                        a - x,
+                    ];
+                    ctx.fillRect(
+                        shiftx + x * scale,
+                        shifty + y * scale,
+                        pw, pw,
+                    );
+                }
+                ctx.fillStyle = `hsl(${color}, 50%, 50%)`;
+                color += 37;
+                yield;
+            }
+        }
+
+        //------------------------------------------------------------------------
+        //------------------------------------------------------------------------
+
+        let animate, messages;
+        let thisHatch;
+        { // scope for animate
+
+            let animState = 0;
+
+            animate = function (tStamp) {
+                let message;
+                let tEnd;
+                if (messages.length) {
+                    message = messages.shift();
+                }
+                if (message?.message == "reset") animState = 0;
+                if (message?.message == "click") animState = 0;
+
+                switch (animState) {
+
+                    case 0:
+                        if (!startOver()) return;
+                        ++animState;
+
+                    case 1:
+                        if (gen) gen.next()
+                        break;
+                    case 2:
+
+
+                } // switch
+
+                window.requestAnimationFrame(animate);
+
+            } // animate
+        } // scope for animate
+        //------------------------------------------------------------------------
+
+        function startOver() {
+            // canvas dimensions
+
+            maxx = window.innerWidth;
+            maxy = window.innerHeight;
+
+            canv.width = maxx;
+            canv.height = maxy;
+            //      ctx.lineJoin = 'round';
+            //      ctx.lineCap = 'round';
+
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, maxx, maxy);
+            readUI();
+            gen = xGen();
+            opts = {
+                a: uiv.a, b: 3, c: 0,
+                scale: 50,
+                pw: 1,
+                steps: 2000,
+            };
+            return true;
+        }
+        //------------------------------------------------------------------------
+
+        function mouseClick(event) {
+
+            messages.push({ message: 'click', event: event });
+
+        } // mouseClick
+
+        //------------------------------------------------------------------------
+        //------------------------------------------------------------------------
+        // beginning of execution
+
+        {
+            canv = document.createElement('canvas');
+            canv.style.position = "relative";
+            document.body.appendChild(canv);
+            ctx = canv.getContext('2d');
+            canv.addEventListener('click', mouseClick);
+        } // creation of CANVAS
+
+        prepareUI();
+
+        messages = [{ message: "reset" }];
+        window.requestAnimationFrame(animate);
+
+    </script>
+</body>
+
 </html>
